@@ -20,10 +20,7 @@ import java.beans.Introspector
 import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
 import kotlin.reflect.*
-import kotlin.reflect.full.createType
-import kotlin.reflect.full.declaredMemberProperties
-import kotlin.reflect.full.isSubclassOf
-import kotlin.reflect.full.superclasses
+import kotlin.reflect.full.*
 import kotlin.reflect.jvm.javaType
 
 /**
@@ -74,10 +71,11 @@ import kotlin.reflect.jvm.javaType
  * By default it's number, but can be changed to int if the TypeScript
  * version used supports it or the user wants to be extra explicit.
  */
+//NOW also support functional interfaces/variables
 class TypeScriptGenerator(
     rootClasses: Iterable<KClass<*>>,
     private val mappings: Map<KClass<*>, String> = mapOf(),
-    classTransformers: List<ClassTransformer> = listOf(),
+    classTransformers: List<ClassTransformer> = listOf(DefaultTransformer(generateFunctions = false)),
     ignoreSuperclasses: Set<KClass<*>> = setOf(),
     private val intTypeName: String = "number",
     private val voidType: VoidType = VoidType.NULL
@@ -136,6 +134,7 @@ class TypeScriptGenerator(
             Byte::class -> intTypeName
             Float::class, Double::class -> "number"
             Any::class -> "any"
+            Unit::class -> "void"
             else -> {
                 @Suppress("IfThenToElvis")
                 if (classifier is KClass<*>) {
@@ -226,6 +225,8 @@ class TypeScriptGenerator(
             ""
         }
 
+
+
         return "interface ${klass.simpleName}$templateParameters$extendsString {\n" +
             klass.declaredMemberProperties
                 .filter { !isFunctionType(it.returnType.javaType) }
@@ -243,7 +244,24 @@ class TypeScriptGenerator(
                     "    $propertyName: $formattedPropertyType;\n"
                 }
                 .joinToString("") +
+                //NOW function types are already filtered,
+                // optional filter default methods of data class
+                //NOW may also use deeper functions?
+                pipeline.transformFunctionList(klass.declaredMemberFunctions,klass).joinToString("") {  generateMemberFunction(it) } +
             "}"
+    }
+
+    private fun generateMemberFunction(memFun: KCallable<*>): String{
+        //Type mapping is provided by formatKType
+
+        //first parameter is always self (only non-static functions are computed)
+        val params= if(memFun.parameters.size>1){
+            memFun.parameters.subList(1, memFun.parameters.size).joinToString(", ") { par ->
+                "${par.name}: ${formatKType(par.type).formatWithoutParenthesis()}"
+            }
+        }else{""}
+        //it.returnType.
+        return "    ${memFun.name}(${params}): ${formatKType(memFun.returnType).formatWithoutParenthesis()};\n"
     }
 
     private fun isFunctionType(javaType: Type): Boolean {

@@ -16,9 +16,7 @@
 
 package me.ntrrgc.tsGenerator
 
-import kotlin.reflect.KClass
-import kotlin.reflect.KProperty
-import kotlin.reflect.KType
+import kotlin.reflect.*
 
 /**
  * Class transformer pipeline.
@@ -51,4 +49,13 @@ internal class ClassTransformerPipeline(val memberTransformers: List<ClassTransf
         }
         return ret
     }
+
+    override fun transformFunctionList(functions: Iterable<KFunction<*>>, klass: KClass<*>): Iterable<KFunction<*>>{
+        var ret = functions
+        memberTransformers.forEach { transformer ->
+            ret = transformer.transformFunctionList(ret, klass)
+        }
+        return ret
+    }
+
 }

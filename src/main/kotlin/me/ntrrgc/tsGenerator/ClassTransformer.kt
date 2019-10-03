@@ -16,9 +16,7 @@
 
 package me.ntrrgc.tsGenerator
 
-import kotlin.reflect.KClass
-import kotlin.reflect.KProperty
-import kotlin.reflect.KType
+import kotlin.reflect.*
 
 /**
  * A TypeScript generator class transformer.
@@ -72,4 +70,22 @@ interface ClassTransformer {
     fun transformPropertyType(type: KType, property: KProperty<*>, klass: KClass<*>): KType {
         return type
     }
+
+
+    /**
+     * Generates a list with the member functions to include in the
+     * definition.
+     *
+     * If it returns null, the value of the next class transformer
+     * in the pipeline is used.
+     *
+     * @param functions member functions list from previous stage in the pipeline,
+     * by default the public member functions are chosen.
+     * @param klass Class the properties come from.
+     */
+    fun transformFunctionList(functions: Iterable<KFunction<*>>, klass: KClass<*>): Iterable<KFunction<*>> {
+        return functions
+    }
+
+
 }
