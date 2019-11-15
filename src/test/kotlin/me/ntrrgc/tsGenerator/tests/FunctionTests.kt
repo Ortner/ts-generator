@@ -23,8 +23,11 @@ import me.ntrrgc.tsGenerator.DefaultTransformer
 import me.ntrrgc.tsGenerator.TypeScriptGenerator
 import me.ntrrgc.tsGenerator.VoidType
 import org.junit.jupiter.api.Test
+import kotlin.reflect.KCallable
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
+import kotlin.reflect.KType
+import kotlin.reflect.full.createType
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -174,7 +177,55 @@ class FunctionTests {
 			}""".clearWS())
 	}
 	
-	//NOW test naming and type subst
+	@Test
+	public fun renameMethodTest(){
+		class TestClassWithBasicFunctions{
+			fun retIntegerStringFct(par: String): Int{return 0}
+		}
+		val out = generateCodeString(TestClassWithBasicFunctions::class, classTransformers = listOf(*fctTrans.toTypedArray(), object: ClassTransformer{
+			override fun transformFunctionName(name: String, fct: KCallable<*>, klass: KClass<*>): String {
+				return name.toLowerCase()
+			}
+		}))
+		println(out)
+		out.clearWS().should.equal("""
+            interface TestClassWithBasicFunctions {
+                retintegerstringfct(par: string): int;
+            }""".clearWS())
+	}
+	@Test
+	public fun renameParamTest(){
+		class TestClassWithBasicFunctions{
+			fun retIntegerStringFct(par: String): Int{return 0}
+		}
+		val out = generateCodeString(TestClassWithBasicFunctions::class, classTransformers = listOf(*fctTrans.toTypedArray(), object: ClassTransformer{
+			override fun transformParameterName(name: String, fct: KCallable<*>, klass: KClass<*>): String {
+				return name.toUpperCase()
+			}
+		}))
+		println(out)
+		out.clearWS().should.equal("""
+            interface TestClassWithBasicFunctions {
+                retIntegerStringFct(PAR: string): int;
+            }""".clearWS())
+	}
+	@Test
+	public fun substTypeTest(){
+		class TestClassWithBasicFunctions{
+			fun retIntegerStringFct(par: String): Int{return 0}
+		}
+		val out = generateCodeString(TestClassWithBasicFunctions::class, classTransformers = listOf(*fctTrans.toTypedArray(), object: ClassTransformer{
+			override fun transformFctType(type: KType, fct: KCallable<*>, klass: KClass<*>): KType {
+				return Any::class.createType()
+			}
+		}))
+		println(out)
+		out.clearWS().should.equal("""
+            interface TestClassWithBasicFunctions {
+                retIntegerStringFct(par: any): any;
+            }""".clearWS())
+	}
+	
 	
 	/**
 	 * removes spaces, tabs and leading/trailing whitespace. New lines in between are preserved
