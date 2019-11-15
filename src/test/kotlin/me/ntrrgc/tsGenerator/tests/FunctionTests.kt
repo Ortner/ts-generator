@@ -24,12 +24,19 @@ import me.ntrrgc.tsGenerator.TypeScriptGenerator
 import me.ntrrgc.tsGenerator.VoidType
 import org.junit.jupiter.api.Test
 import kotlin.reflect.KClass
+import kotlin.reflect.KProperty
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FunctionTests {
 
-    val fctTrans: List<ClassTransformer> = listOf(DefaultTransformer(generateFunctions = true))
+    val fctTrans: MutableList<ClassTransformer> = TypeScriptGenerator.defaultTransformers().toMutableList()
+	init{
+		fctTrans.removeIf {
+			it is DefaultTransformer
+		}
+		fctTrans.add(0,DefaultTransformer(generateFunctions = true))
+	}
 
     fun generateCode(klass: KClass<*>,
                             mappings: Map<KClass<*>, String> = mapOf(),
@@ -152,6 +159,22 @@ class FunctionTests {
 			    lambda3(listener: (par0: any, par1: int) => void): void;
 			}""".clearWS())
 	}
+	
+	
+	@Test
+	public fun filterReflectTest(){
+		class TestClassWithLambdaKPropertyFunction{
+			fun lambda1(listener: (oldVal: KProperty<Int>, newVal: Int) -> Unit) {}
+		}
+		val out = generateCodeString(TestClassWithLambdaKPropertyFunction::class)
+		println(out)
+		out.clearWS().should.equal("""
+			interface TestClassWithLambdaKPropertyFunction {
+			    lambda1(listener: (oldVal: any, newVal: int) => void): void;
+			}""".clearWS())
+	}
+	
+	//NOW test naming and type subst
 	
 	/**
 	 * removes spaces, tabs and leading/trailing whitespace. New lines in between are preserved

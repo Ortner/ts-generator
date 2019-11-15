@@ -19,29 +19,33 @@
 package me.ntrrgc.tsGenerator
 
 import kotlin.reflect.*
+import kotlin.reflect.full.createType
 
-
+/**
+ * This transformer controls which elements of a class are being transformed to typescript.
+ */
 open class DefaultTransformer(
+		/**
+		 * If true, the properties of this class will be included.
+		 */
         private val generateProperties: Boolean = true,
+		/**
+		 * If true, the member of this class will be included.
+		 */
         private val generateFunctions: Boolean = false,
+		/**
+		 * If false, the standardized functions of dataclasses (e.g. componentN(), copy, equals, hashCode etc.) will
+		 * be ignored.
+		 */
         private val generateDataClassFunctions: Boolean = true
 ): ClassTransformer{
 
 
     override fun transformPropertyList(properties: List<KProperty<*>>, klass: KClass<*>): List<KProperty<*>> {
-        //NOW filter according to current code
         if(!generateProperties){
             return listOf()
         }
         return properties
-    }
-
-    override fun transformPropertyName(propertyName: String, property: KProperty<*>, klass: KClass<*>): String {
-        return propertyName
-    }
-
-    override fun transformPropertyType(type: KType, property: KProperty<*>, klass: KClass<*>): KType {
-        return type
     }
 
 
@@ -59,4 +63,24 @@ open class DefaultTransformer(
         }
     }
 
+}
+
+
+/**
+ * This transformer suppresses generation of classes
+ */
+open class SkipClassTransformer(
+		private val startsWith: List<String> = listOf("kotlin.reflect")
+): ClassTransformer{
+	
+	override fun transformType(type: KType): KType {
+		val name = type.classifier.toString()
+		startsWith.forEach {
+			if(name.startsWith("class $it")){
+				return Any::class.createType(nullable = type.isMarkedNullable)
+			}
+		}
+		return type
+	}
+	
 }

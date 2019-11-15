@@ -17,7 +17,8 @@ import java.net.URI
  */
 
 group = "me.ntrrgc"
-version = "1.1.2"
+//NOW switch to 1.1.2?!
+version = "dev"
 
 buildscript {
 

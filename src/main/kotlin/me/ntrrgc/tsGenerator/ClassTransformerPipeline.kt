@@ -27,35 +27,76 @@ import kotlin.reflect.*
 internal class ClassTransformerPipeline(val memberTransformers: List<ClassTransformer>): ClassTransformer {
 
     override fun transformPropertyList(properties: List<KProperty<*>>, klass: KClass<*>): List<KProperty<*>> {
-        var ret = properties
-        memberTransformers.forEach { transformer ->
-            ret = transformer.transformPropertyList(ret, klass)
-        }
-        return ret
+		return evaluteTillEnd(properties){ t,last ->
+			t.transformPropertyList(last,klass)
+		}
     }
 
     override fun transformPropertyName(propertyName: String, property: KProperty<*>, klass: KClass<*>): String {
-        var ret = propertyName
-        memberTransformers.forEach { transformer ->
-            ret = transformer.transformPropertyName(ret, property, klass)
-        }
-        return ret
+		return evaluteTillEnd(propertyName){ t,last ->
+			t.transformPropertyName(last, property, klass)
+		}
     }
 
     override fun transformPropertyType(type: KType, property: KProperty<*>, klass: KClass<*>): KType {
-        var ret = type
-        memberTransformers.forEach { transformer ->
-            ret = transformer.transformPropertyType(ret, property, klass)
-        }
-        return ret
+		var ret= evaluteTillEnd(type){ t,last ->
+			t.transformType(last)
+		}
+		return evaluteTillEnd(ret){ t,last ->
+			t.transformPropertyType(last, property, klass)
+		}
     }
 
     override fun transformFunctionList(functions: Iterable<KFunction<*>>, klass: KClass<*>): Iterable<KFunction<*>>{
-        var ret = functions
-        memberTransformers.forEach { transformer ->
-            ret = transformer.transformFunctionList(ret, klass)
-        }
-        return ret
+		return evaluteTillEnd(functions){ t,last ->
+			t.transformFunctionList(last,klass)
+		}
     }
+	
+	override fun transformFunctionName(name: String, fct: KCallable<*>, klass: KClass<*>): String {
+		return evaluteTillEnd(name){ t,last ->
+			t.transformFunctionName(last, fct, klass)
+		}
+	}
+	
+	override fun transformParameterName(name: String, fct: KCallable<*>, klass: KClass<*>): String {
+		return evaluteTillEnd(name){ t,last ->
+			t.transformParameterName(last, fct, klass)
+		}
+	}
+	
+	override fun transformFctType(type: KType, fct: KCallable<*>, klass: KClass<*>): KType {
+		var ret= evaluteTillEnd(type){ t,last ->
+			t.transformType(last)
+		}
+		return evaluteTillEnd(ret){ t,last ->
+			t.transformFctType(last, fct, klass)
+		}
+	}
+	
+	override fun transformType(type: KType): KType {
+		return evaluteTillEnd(type){ t,last ->
+			t.transformType(last)
+		}
+	}
+	
+	
+	inline fun <T: Any> evaluteTillEnd(value: T, getNext: (transformer: ClassTransformer, last: T)->T): T{
+		var ret: T = value
+		for(transformer in memberTransformers){
+			ret = getNext(transformer, ret)
+		}
+		return ret
+	}
+	
+	inline fun <T: Any> firstNotNull(value: T, getNext: (transformer: ClassTransformer)->T?): T{
+		var ret: T? = null
+		for(transformer in memberTransformers){
+			ret = getNext(transformer)
+			if(ret!=null)
+				break
+		}
+		return ret ?: value
+	}
 
 }

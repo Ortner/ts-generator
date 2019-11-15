@@ -30,8 +30,7 @@ interface ClassTransformer {
      * Generates a list with the properties to include in the
      * definition.
      *
-     * If it returns null, the value of the next class transformer
-     * in the pipeline is used.
+     * The returned list will be filtered further in the next stages of the pipeline
      *
      * @param properties Property list from previous stage in the pipeline,
      * by default the public, non-function properties are chosen.
@@ -45,9 +44,6 @@ interface ClassTransformer {
      * Returns the property name that will be included in the
      * definition.
      *
-     * If it returns null, the value of the next class transformer
-     * in the pipeline is used.
-     *
      * @param propertyName Property name generated in previous
      * transformers in the pipeline, by default the original property
      * name.
@@ -59,8 +55,8 @@ interface ClassTransformer {
     }
 
     /**
-     * Returns the property type that will be processed and included
-     * in the definition.
+     * Returns the property type that will be processed and included in the definition.
+	 * It includes transformType in the first stage of the pipeline.
      *
      * @param type Type coming from previous stages of the pipeline,
      * by default the actual type of the property.
@@ -76,8 +72,7 @@ interface ClassTransformer {
      * Generates a list with the member functions to include in the
      * definition.
      *
-     * If it returns null, the value of the next class transformer
-     * in the pipeline is used.
+	 * The returned list will be filtered further in the next stages of the pipeline
      *
      * @param functions member functions list from previous stage in the pipeline,
      * by default the public member functions are chosen.
@@ -86,6 +81,55 @@ interface ClassTransformer {
     fun transformFunctionList(functions: Iterable<KFunction<*>>, klass: KClass<*>): Iterable<KFunction<*>> {
         return functions
     }
-
+	
+	/**
+	 * Returns the function name that will be included in the
+	 * definition.
+	 *
+	 * @param name the name of the function.
+	 * @param fct the function
+	 * @param klass Class the function comes from.
+	 */
+	fun transformFunctionName(name: String, fct: KCallable<*>, klass: KClass<*>): String {
+		return name
+	}
+	
+	
+	/**
+	 * Returns the name of a parameter of a function that will be included in the
+	 * definition.
+	 *
+	 * @param name the name of the function.
+	 * @param fct the function
+	 * @param klass Class the function comes from.
+	 */
+	fun transformParameterName(name: String, fct: KCallable<*>, klass: KClass<*>): String {
+		return name
+	}
+	
+	/**
+	 * Returns the property type that will be processed and included in the definition.
+	 * It includes transformType in the first stage of the pipeline.
+	 *
+	 * @param name the name of the function.
+	 * @param fct the function
+	 * by default the actual type of the property.
+	 */
+	fun transformFctType(type: KType, fct: KCallable<*>, klass: KClass<*>): KType {
+		return type
+	}
+	
+	
+	/**
+	 * Returns the type that will be processed and included in the definition.
+	 * In the pipeline, it is also applied as first stage in transformFctType and transformPropertyType
+	 *
+	 * @param name the name of the function.
+	 * @param fct the function
+	 * by default the actual type of the property.
+	 */
+	fun transformType(type: KType): KType {
+		return type
+	}
 
 }
