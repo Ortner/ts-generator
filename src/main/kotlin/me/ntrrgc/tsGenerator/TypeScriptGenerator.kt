@@ -71,7 +71,6 @@ import kotlin.reflect.jvm.javaType
  * By default it's number, but can be changed to int if the TypeScript
  * version used supports it or the user wants to be extra explicit.
  */
-//NOW also support functional interfaces/variables
 class TypeScriptGenerator(
     rootClasses: Iterable<KClass<*>>,
     private val mappings: Map<KClass<*>, String> = mapOf(),
@@ -115,10 +114,36 @@ class TypeScriptGenerator(
         visitClass(type)
         return type.simpleName!!
     }
+	
+	private fun formatLambda(kType: KType): String {
+		//last argument is return type
+		var ret = "("
+		val size = kType.arguments.size
+		kType.arguments.withIndex().forEach{
+			ret += if(it.index == size-1){
+				") => "
+				//ret+="): "
+			} else { // adding parameter name
+				val name = it.value.type?.findAnnotation<kotlin.ParameterName>()?.name ?: "par${it.index}"
+				"$name: "
+			}
+			ret+=formatKType(it.value.type!!).formatWithoutParenthesis() //star projections will throw for NOW
+			if(it.index < size-2){
+				ret+=", "
+			}
+		}
+		println(ret)
+		
+		
+		return ret
+	}
 
     private fun formatKType(kType: KType): TypeScriptType {
         val classifier = kType.classifier
         if (classifier is KClass<*>) {
+			if (classifier.toString().startsWith("class kotlin.Function")){
+				return TypeScriptType.single(formatLambda(kType), kType.isMarkedNullable, voidType)
+			}
             val existingMapping = mappings[classifier]
             if (existingMapping != null) {
                 return TypeScriptType.single(mappings[classifier]!!, kType.isMarkedNullable, voidType)
