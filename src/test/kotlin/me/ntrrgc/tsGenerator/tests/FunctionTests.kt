@@ -89,14 +89,14 @@ class FunctionTests {
         }
         val out = generateCodeString(TestClassWithBasicFunctions::class)
         println(out)
-        out.trimIndent().should.equal("""
+        out.clearWS().should.equal("""
             interface TestClassWithBasicFunctions {
                 hans: string;
                 noReturnVoidFct(): void;
                 retIntVoidFct(): int | null;
                 retIntegerStringFct(par: string): int;
                 retIntegerVoidFct(): int;
-            }""".trimIndent())
+            }""".clearWS())
     }
 
 
@@ -135,4 +135,29 @@ class FunctionTests {
         assertFalse(out.contains("toString"))
 
     }
+	
+	@Test
+	public fun testLambda(){
+		class TestClassWithLambdaParameterFunction{
+			fun lambda1(listener: (oldVal: Int, newVal: Int) -> Unit) {}
+			fun lambda2(listener: (oldVal: Any, newVal: Int) -> Unit) {}
+			fun lambda3(listener: (Any, Int) -> Unit) {}
+		}
+		val out = generateCodeString(TestClassWithLambdaParameterFunction::class)
+		println(out)
+		out.clearWS().should.equal("""
+			interface TestClassWithLambdaParameterFunction {
+			    lambda1(listener: (oldVal: int, newVal: int) => void): void;
+			    lambda2(listener: (oldVal: any, newVal: int) => void): void;
+			    lambda3(listener: (par0: any, par1: int) => void): void;
+			}""".clearWS())
+	}
+	
+	/**
+	 * removes spaces, tabs and leading/trailing whitespace. New lines in between are preserved
+	 */
+	private fun String.clearWS(): String{
+		return this.replace(" ","").replace("\t","").trim()
+	}
+	
 }
