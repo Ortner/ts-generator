@@ -17,11 +17,8 @@
 
 package me.ntrrgc.tsGenerator.tests
 
-import com.winterbe.expekt.should
 import me.ntrrgc.tsGenerator.ClassTransformer
 import me.ntrrgc.tsGenerator.DefaultTransformer
-import me.ntrrgc.tsGenerator.TypeScriptGenerator
-import me.ntrrgc.tsGenerator.VoidType
 import org.junit.jupiter.api.Test
 import kotlin.reflect.KCallable
 import kotlin.reflect.KClass
@@ -31,61 +28,8 @@ import kotlin.reflect.full.createType
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class FunctionTests {
+class FunctionTests: BaseTest() {
 
-    val fctTrans: MutableList<ClassTransformer> = TypeScriptGenerator.defaultTransformers().toMutableList()
-	init{
-		fctTrans.removeIf {
-			it is DefaultTransformer
-		}
-		fctTrans.add(0,DefaultTransformer(generateFunctions = true))
-	}
-
-    fun generateCode(klass: KClass<*>,
-                            mappings: Map<KClass<*>, String> = mapOf(),
-                            classTransformers: List<ClassTransformer> = fctTrans,
-                            ignoreSuperclasses: Set<KClass<*>> = setOf(),
-                            voidType: VoidType = VoidType.NULL
-    ) : Set<TypeScriptDefinition>
-    {
-        val generator = TypeScriptGenerator(listOf(klass), mappings, classTransformers,
-                ignoreSuperclasses, intTypeName = "int", voidType = voidType)
-
-        val actual = generator.individualDefinitions
-                .map(TypeScriptDefinitionFactory::fromCode)
-                .toSet()
-        return actual
-    }
-
-    inline fun generateCodeString(klass: KClass<*>,
-                           mappings: Map<KClass<*>, String> = mapOf(),
-                           classTransformers: List<ClassTransformer> = fctTrans,
-                           ignoreSuperclasses: Set<KClass<*>> = setOf(),
-                           voidType: VoidType = VoidType.NULL
-    ) : String
-    {
-        return generateCode(klass, mappings, classTransformers, ignoreSuperclasses, voidType).joinToString("\n")
-    }
-
-    fun assertGeneratedCode(klass: KClass<*>,
-                            expectedOutput: Set<String>,
-                            mappings: Map<KClass<*>, String> = mapOf(),
-                            classTransformers: List<ClassTransformer> = listOf(),
-                            ignoreSuperclasses: Set<KClass<*>> = setOf(),
-                            voidType: VoidType = VoidType.NULL)
-    {
-        val generator = TypeScriptGenerator(listOf(klass), mappings, classTransformers,
-                ignoreSuperclasses, intTypeName = "int", voidType = voidType)
-
-        val expected = expectedOutput
-                .map(TypeScriptDefinitionFactory::fromCode)
-                .toSet()
-        val actual = generator.individualDefinitions
-                .map(TypeScriptDefinitionFactory::fromCode)
-                .toSet()
-
-        actual.should.equal(expected)
-    }
 
 
     @Test
@@ -97,16 +41,14 @@ class FunctionTests {
             fun retIntegerVoidFct(): Int{return 0}
             fun retIntegerStringFct(par: String): Int{return 0}
         }
-        val out = generateCodeString(TestClassWithBasicFunctions::class)
-        println(out)
-        out.clearWS().should.equal("""
+       checkCodeEquals(TestClassWithBasicFunctions::class, """
             interface TestClassWithBasicFunctions {
                 hans: string;
                 noReturnVoidFct(): void;
                 retIntVoidFct(): int | null;
                 retIntegerStringFct(par: string): int;
                 retIntegerVoidFct(): int;
-            }""".clearWS())
+            }""")
     }
 
 
@@ -134,9 +76,8 @@ class FunctionTests {
         assertTrue(out.contains("equals"))
         assertTrue(out.contains("hashCode"))
         assertTrue(out.contains("toString"))
-
-        out = generateCodeString(TestDataClass::class, classTransformers = listOf(DefaultTransformer(
-                generateFunctions = true,generateDataClassFunctions = false)) )
+        out = generateCodeString(TestDataClass::class, baseTransformer = DefaultTransformer(
+                generateFunctions = true,generateDataClassFunctions = false) )
         println("data disabled "+out)
         assertFalse(out.contains("component"))
         assertFalse(out.contains("copy"))
@@ -153,14 +94,12 @@ class FunctionTests {
 			fun lambda2(listener: (oldVal: Any, newVal: Int) -> Unit) {}
 			fun lambda3(listener: (Any, Int) -> Unit) {}
 		}
-		val out = generateCodeString(TestClassWithLambdaParameterFunction::class)
-		println(out)
-		out.clearWS().should.equal("""
+		checkCodeEquals(TestClassWithLambdaParameterFunction::class, """
 			interface TestClassWithLambdaParameterFunction {
 			    lambda1(listener: (oldVal: int, newVal: int) => void): void;
 			    lambda2(listener: (oldVal: any, newVal: int) => void): void;
 			    lambda3(listener: (par0: any, par1: int) => void): void;
-			}""".clearWS())
+			}""")
 	}
 	
 	
@@ -169,12 +108,21 @@ class FunctionTests {
 		class TestClassWithLambdaKPropertyFunction{
 			fun lambda1(listener: (oldVal: KProperty<Int>, newVal: Int) -> Unit) {}
 		}
-		val out = generateCodeString(TestClassWithLambdaKPropertyFunction::class)
-		println(out)
-		out.clearWS().should.equal("""
+		checkCodeEquals(TestClassWithLambdaKPropertyFunction::class, """
 			interface TestClassWithLambdaKPropertyFunction {
 			    lambda1(listener: (oldVal: any, newVal: int) => void): void;
-			}""".clearWS())
+			}""")
+	}
+	
+	@Test
+	public fun genericFctTest(){
+		class TestClass{
+			fun <T> generic(listener: T): T = listener
+		}
+		checkCodeEquals(TestClass::class, """
+			interface TestClass {
+				generic<T>(listener: T): T;
+			}""")
 	}
 	
 	@Test
@@ -182,56 +130,43 @@ class FunctionTests {
 		class TestClassWithBasicFunctions{
 			fun retIntegerStringFct(par: String): Int{return 0}
 		}
-		val out = generateCodeString(TestClassWithBasicFunctions::class, classTransformers = listOf(*fctTrans.toTypedArray(), object: ClassTransformer{
+		checkCodeEquals(TestClassWithBasicFunctions::class,"""
+            interface TestClassWithBasicFunctions {
+                retintegerstringfct(par: string): int;
+            }""", classTransformers = listOf(object: ClassTransformer{
 			override fun transformFunctionName(name: String, fct: KCallable<*>, klass: KClass<*>): String {
 				return name.toLowerCase()
 			}
 		}))
-		println(out)
-		out.clearWS().should.equal("""
-            interface TestClassWithBasicFunctions {
-                retintegerstringfct(par: string): int;
-            }""".clearWS())
 	}
 	@Test
 	public fun renameParamTest(){
 		class TestClassWithBasicFunctions{
 			fun retIntegerStringFct(par: String): Int{return 0}
 		}
-		val out = generateCodeString(TestClassWithBasicFunctions::class, classTransformers = listOf(*fctTrans.toTypedArray(), object: ClassTransformer{
+		checkCodeEquals(TestClassWithBasicFunctions::class,"""
+            interface TestClassWithBasicFunctions {
+                retIntegerStringFct(PAR: string): int;
+            }""", classTransformers = listOf(object: ClassTransformer{
 			override fun transformParameterName(name: String, fct: KCallable<*>, klass: KClass<*>): String {
 				return name.toUpperCase()
 			}
 		}))
-		println(out)
-		out.clearWS().should.equal("""
-            interface TestClassWithBasicFunctions {
-                retIntegerStringFct(PAR: string): int;
-            }""".clearWS())
 	}
 	@Test
 	public fun substTypeTest(){
 		class TestClassWithBasicFunctions{
 			fun retIntegerStringFct(par: String): Int{return 0}
 		}
-		val out = generateCodeString(TestClassWithBasicFunctions::class, classTransformers = listOf(*fctTrans.toTypedArray(), object: ClassTransformer{
+		checkCodeEquals(TestClassWithBasicFunctions::class,"""
+            interface TestClassWithBasicFunctions {
+                retIntegerStringFct(par: any): any;
+            }""", classTransformers = listOf(object: ClassTransformer{
 			override fun transformFctType(type: KType, fct: KCallable<*>, klass: KClass<*>): KType {
 				return Any::class.createType()
 			}
 		}))
-		println(out)
-		out.clearWS().should.equal("""
-            interface TestClassWithBasicFunctions {
-                retIntegerStringFct(par: any): any;
-            }""".clearWS())
 	}
 	
-	
-	/**
-	 * removes spaces, tabs and leading/trailing whitespace. New lines in between are preserved
-	 */
-	private fun String.clearWS(): String{
-		return this.replace(" ","").replace("\t","").trim()
-	}
 	
 }

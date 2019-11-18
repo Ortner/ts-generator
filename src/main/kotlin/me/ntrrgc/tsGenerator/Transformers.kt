@@ -28,17 +28,23 @@ open class DefaultTransformer(
 		/**
 		 * If true, the properties of this class will be included.
 		 */
-        private val generateProperties: Boolean = true,
+		val generateProperties: Boolean = true,
 		/**
 		 * If true, the member of this class will be included.
 		 */
-        private val generateFunctions: Boolean = false,
+        val generateFunctions: Boolean = false,
 		/**
 		 * If false, the standardized functions of dataclasses (e.g. componentN(), copy, equals, hashCode etc.) will
 		 * be ignored.
 		 */
-        private val generateDataClassFunctions: Boolean = true
-): ClassTransformer{
+        val generateDataClassFunctions: Boolean = true,
+		
+		/**
+		 * type classifiers starting with any of the strings in this list will be replaced by any
+		 */
+		val startsWith: List<String> = listOf("kotlin.reflect")
+
+): SkipClassTransformer(){
 
 
     override fun transformPropertyList(properties: List<KProperty<*>>, klass: KClass<*>): List<KProperty<*>> {
@@ -70,6 +76,9 @@ open class DefaultTransformer(
  * This transformer suppresses generation of classes
  */
 open class SkipClassTransformer(
+		/**
+		 * type classifiers starting with any of the strings in this list will be replaced by any
+		 */
 		private val startsWith: List<String> = listOf("kotlin.reflect")
 ): ClassTransformer{
 	

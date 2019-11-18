@@ -70,6 +70,11 @@ import kotlin.reflect.jvm.javaType
  * @param intTypeName Defines the name integer numbers will be emitted as.
  * By default it's number, but can be changed to int if the TypeScript
  * version used supports it or the user wants to be extra explicit.
+ *
+ * @param baseTransformer This is the standard transformer, that will be
+ * used as first transformer in the pipeline. The properties of this transformer
+ * can be adjusted before the transforamtion or it can be replaced by a
+ * custom transformer.
  */
 class TypeScriptGenerator(
     rootClasses: Iterable<KClass<*>>,
@@ -77,11 +82,12 @@ class TypeScriptGenerator(
     classTransformers: List<ClassTransformer> = defaultTransformers(),
     ignoreSuperclasses: Set<KClass<*>> = setOf(),
     private val intTypeName: String = "number",
-    private val voidType: VoidType = VoidType.NULL
+    private val voidType: VoidType = VoidType.NULL,
+	val baseTransformer: ClassTransformer = DefaultTransformer()
 ) {
     private val visitedClasses: MutableSet<KClass<*>> = java.util.HashSet()
     private val generatedDefinitions = mutableListOf<String>()
-    private val pipeline = ClassTransformerPipeline(classTransformers)
+    private val pipeline = ClassTransformerPipeline(listOf(baseTransformer,*classTransformers.toTypedArray()))
     private val ignoredSuperclasses = setOf(
         Any::class,
         java.io.Serializable::class,
@@ -94,6 +100,8 @@ class TypeScriptGenerator(
 
     companion object {
         private val KotlinAnyOrNull = Any::class.createType(nullable = true)
+		
+		const val classSeperator = "\$"
 
         fun isJavaBeanProperty(kProperty: KProperty<*>, klass: KClass<*>): Boolean {
             val beanInfo = Introspector.getBeanInfo(klass.java)
@@ -144,7 +152,29 @@ class TypeScriptGenerator(
 		
 		return ret
 	}
-
+	
+	private fun formatGenerics(typeParams: List<KTypeParameter>): String{
+		return if (typeParams.isNotEmpty()) {
+			"<" + typeParams
+					.map { typeParameter ->
+						val bounds = typeParameter.upperBounds
+								.filter { it.classifier != Any::class }
+						typeParameter.name + if (bounds.isNotEmpty()) {
+							" extends " + bounds
+									.map { bound ->
+										formatKType(bound).formatWithoutParenthesis()
+									}
+									.joinToString(" & ")
+						} else {
+							""
+						}
+					}
+					.joinToString(", ") + ">"
+		} else {
+			""
+		}
+	}
+	
     private fun formatKType(kType: KType): TypeScriptType {
         val classifier = kType.classifier
         if (classifier is KClass<*>) {
@@ -227,8 +257,20 @@ class TypeScriptGenerator(
             .joinToString(" | ")
         };"
     }
-
+	
+	/**
+	 * This method handles the generation of all kotlin class types, including anonymous and Companion classes
+	 */
     private fun generateInterface(klass: KClass<*>): String {
+		// does also support inner classes etc
+		val packageName = klass.java.`package`.name+"."
+		val name=klass.qualifiedName?.let{
+			it.removePrefix(packageName)?.replace(".", classSeperator)
+		}
+				?: klass.simpleName // local classes in functions do not have names, only supported for readability of tests
+				?: return "" // anonymous classes do not have a name at all (not supported yet)
+				
+		
         val supertypes = klass.supertypes
             .filterNot { it.classifier in ignoredSuperclasses }
         val extendsString = if (supertypes.isNotEmpty()) {
@@ -236,30 +278,10 @@ class TypeScriptGenerator(
                 .map { formatKType(it).formatWithoutParenthesis() }
                 .joinToString(", ")
         } else ""
-
-        val templateParameters = if (klass.typeParameters.isNotEmpty()) {
-            "<" + klass.typeParameters
-                .map { typeParameter ->
-                    val bounds = typeParameter.upperBounds
-                        .filter { it.classifier != Any::class }
-                    typeParameter.name + if (bounds.isNotEmpty()) {
-                        " extends " + bounds
-                            .map { bound ->
-                                formatKType(bound).formatWithoutParenthesis()
-                            }
-                            .joinToString(" & ")
-                    } else {
-                        ""
-                    }
-                }
-                .joinToString(", ") + ">"
-        } else {
-            ""
-        }
-
-
-
-        return "interface ${klass.simpleName}$templateParameters$extendsString {\n" +
+		
+        val templateParameters = formatGenerics(klass.typeParameters)
+		
+        return "interface ${name}$templateParameters$extendsString {\n" +
             klass.declaredMemberProperties
                 .filter { !isFunctionType(it.returnType.javaType) }
                 .filter {
@@ -295,10 +317,12 @@ class TypeScriptGenerator(
         }else{""}
         //it.returnType.
 		val funName = pipeline.transformFunctionName(memFun.name,memFun,klass)
+		val funGenerics = formatGenerics(memFun.typeParameters)
 		var parType = memFun.returnType
 		parType = pipeline.transformFctType(parType,memFun,klass)
-        return "    ${funName}(${params}): ${formatKType(parType).formatWithoutParenthesis()};\n"
+        return "    ${funName}${funGenerics}(${params}): ${formatKType(parType).formatWithoutParenthesis()};\n"
     }
+	
 
     private fun isFunctionType(javaType: Type): Boolean {
         return javaType is KCallable<*>
@@ -309,8 +333,8 @@ class TypeScriptGenerator(
     private fun generateDefinition(klass: KClass<*>): String {
         return if (klass.java.isEnum) {
             generateEnum(klass)
-        } else {
-            generateInterface(klass)
+        }else {
+			generateInterface(klass)
         }
     }
 
