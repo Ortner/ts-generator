@@ -79,11 +79,11 @@ import kotlin.reflect.jvm.javaType
 class TypeScriptGenerator(
     rootClasses: Iterable<KClass<*>>,
     private val mappings: Map<KClass<*>, String> = mapOf(),
-    classTransformers: List<ClassTransformer> = defaultTransformers(),
+    classTransformers: List<ClassTransformer> = emptyList(),
     ignoreSuperclasses: Set<KClass<*>> = setOf(),
     private val intTypeName: String = "number",
     private val voidType: VoidType = VoidType.NULL,
-	val baseTransformer: ClassTransformer = DefaultTransformer()
+	baseTransformer: ClassTransformer = DefaultTransformer()
 ) {
     private val visitedClasses: MutableSet<KClass<*>> = java.util.HashSet()
     private val generatedDefinitions = mutableListOf<String>()
@@ -108,12 +108,6 @@ class TypeScriptGenerator(
             return beanInfo.propertyDescriptors
                 .any { bean -> bean.name == kProperty.name }
         }
-		
-		fun defaultTransformers(): List<ClassTransformer>{
-			return listOf(DefaultTransformer(generateFunctions = false),
-					SkipClassTransformer()
-					)
-		}
 		
     }
 

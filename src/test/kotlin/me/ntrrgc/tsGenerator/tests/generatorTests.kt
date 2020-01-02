@@ -40,7 +40,7 @@ fun assertGeneratedCode(klass: KClass<*>,
                         ignoreSuperclasses: Set<KClass<*>> = setOf(),
                         voidType: VoidType = VoidType.NULL)
 {
-    val generator = TypeScriptGenerator(listOf(klass), mappings, listOf(*classTransformers.toTypedArray(),*TypeScriptGenerator.defaultTransformers().toTypedArray()),
+    val generator = TypeScriptGenerator(listOf(klass), mappings, classTransformers,
         ignoreSuperclasses, intTypeName = "int", voidType = voidType)
 
     val expected = expectedOutput
