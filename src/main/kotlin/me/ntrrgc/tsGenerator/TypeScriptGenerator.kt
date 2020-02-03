@@ -260,7 +260,7 @@ class TypeScriptGenerator(
 		val packageName = klass.java.`package`.name+"."
 		val name=klass.qualifiedName?.let{
 			it.removePrefix(packageName)?.replace(".", classSeperator)
-		}
+		}?.substringAfterLast("$") // stripping inner class prefix
 				?: klass.simpleName // local classes in functions do not have names, only supported for readability of tests
 				?: return "" // anonymous classes do not have a name at all (not supported yet)
 				
@@ -274,26 +274,35 @@ class TypeScriptGenerator(
         } else ""
 		
         val templateParameters = formatGenerics(klass.typeParameters)
-		
-        return "interface ${name}$templateParameters$extendsString {\n" +
-            klass.declaredMemberProperties
-                .filter { !isFunctionType(it.returnType.javaType) }
-                .filter {
-                    it.visibility == KVisibility.PUBLIC || isJavaBeanProperty(it, klass)
-                }
-                .let { propertyList ->
-                    pipeline.transformPropertyList(propertyList, klass)
-                }
-                .map { property ->
-                    val propertyName = pipeline.transformPropertyName(property.name, property, klass)
-                    val propertyType = pipeline.transformPropertyType(property.returnType, property, klass)
-
-                    val formattedPropertyType = formatKType(propertyType).formatWithoutParenthesis()
-                    "    $propertyName: $formattedPropertyType;\n"
-                }
-                .joinToString("") +
-                pipeline.transformFunctionList(klass.declaredMemberFunctions,klass).joinToString("") {  generateMemberFunction(it,klass) } +
-            "}"
+		//
+		var ret = ""
+		try {
+			ret = "interface ${name}$templateParameters$extendsString {\n" +
+					klass.declaredMemberProperties
+							.filter { !isFunctionType(it.returnType.javaType) }
+							.filter {
+								it.visibility == KVisibility.PUBLIC || isJavaBeanProperty(it, klass)
+							}
+							.let { propertyList ->
+								pipeline.transformPropertyList(propertyList, klass)
+							}
+							.map { property ->
+								val propertyName = pipeline.transformPropertyName(property.name, property, klass)
+								val propertyType = pipeline.transformPropertyType(property.returnType, property, klass)
+								
+								val formattedPropertyType = formatKType(propertyType).formatWithoutParenthesis()
+								"    $propertyName: $formattedPropertyType;\n"
+							}
+							.joinToString("") +
+					pipeline.transformFunctionList(klass.declaredMemberFunctions, klass).joinToString("") { generateMemberFunction(it, klass) } +
+					"}"
+		} catch(e: Throwable) {
+			println("Warning: Error generating interface $name in $packageName\nUsing empty interface.")
+			ret = "interface ${name.substringAfterLast("$")}$templateParameters$extendsString {}"
+			
+			//throw RuntimeException("Error generating $name in $packageName",e)
+		}
+		return ret
     }
 
     private fun generateMemberFunction(memFun: KCallable<*>, klass: KClass<*>): String{

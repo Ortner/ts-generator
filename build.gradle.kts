@@ -17,7 +17,7 @@ import java.net.URI
  */
 
 group = "me.ntrrgc"
-version = "1.1.2"
+version = "1.1.3"
 
 buildscript {
 
@@ -26,13 +26,13 @@ buildscript {
     }
 }
 
-val kotlin_version = "1.3.50"
+val kotlin_version = "1.3.60"
 val spek_version = "1.1.5"
 val junit_version = "1.0.2"
 val junit5version = "5.2.0"
 
 plugins{
-    kotlin("jvm") version "1.3.50"
+    kotlin("jvm") version "1.3.60"
     id("maven-publish")
 }
 
